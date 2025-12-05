@@ -1,0 +1,208 @@
+# ============================================================================
+# VALIDATOR QUERIES WITH METADATA (moniker, website, identity, details)
+# ============================================================================
+
+# 1. Get All Validators with Full Metadata
+query GetValidatorsWithMetadata {
+  validators(
+    first: 100
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    slashedAmount
+    isJailed
+    totalStakers
+    delegatorCount
+    createdAtBlock
+    createdAtTimestamp
+    updatedAtBlock
+    updatedAtTimestamp
+    # Metadata fields
+    moniker
+    website
+    identity
+    details
+  }
+}
+
+# 2. Get Top Validators by Staking (with Metadata)
+query GetTopValidatorsWithMetadata($first: Int = 10) {
+  validators(
+    first: $first
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    identity
+    details
+    status
+    stakingAmount
+    totalRewards
+    totalStakers
+    delegatorCount
+  }
+}
+
+# 3. Get Active Validators Only (with Metadata)
+query GetActiveValidatorsWithMetadata {
+  validators(
+    first: 100
+    where: { status: Active }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    identity
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    totalStakers
+    delegatorCount
+  }
+}
+
+# 4. Search Validator by Moniker (partial match)
+query SearchValidatorByMoniker($searchTerm: String!) {
+  validators(
+    first: 100
+    where: { moniker_contains: $searchTerm }
+  ) {
+    id
+    moniker
+    website
+    identity
+    details
+    status
+    stakingAmount
+    totalStakers
+  }
+}
+
+# 5. Get Validator by Address with Full Details
+query GetValidatorByAddress($address: ID!) {
+  validator(id: $address) {
+    id
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    slashedAmount
+    commissionRate
+    isJailed
+    totalStakers
+    delegatorCount
+    createdAtBlock
+    createdAtTimestamp
+    updatedAtBlock
+    updatedAtTimestamp
+    # Metadata
+    moniker
+    website
+    identity
+    details
+    # Relations
+    stakes(first: 10, orderBy: amount, orderDirection: desc) {
+      id
+      staker
+      amount
+      isActive
+    }
+    rewards(first: 10, orderBy: timestamp, orderDirection: desc) {
+      id
+      amount
+      timestamp
+    }
+  }
+}
+
+# 6. Get Validators with Website Info Only
+query GetValidatorsWithWebsite {
+  validators(
+    first: 100
+    where: { website_not: null }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    stakingAmount
+    status
+  }
+}
+
+# 7. Dashboard Query - Top Validators with Key Info
+query DashboardTopValidators {
+  validators(
+    first: 20
+    where: { status: Active }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    stakingAmount
+    totalRewards
+    totalStakers
+    delegatorCount
+    status
+  }
+}
+
+# 8. Validator Card Info (for UI display)
+query ValidatorCardInfo($validatorId: ID!) {
+  validator(id: $validatorId) {
+    id
+    moniker
+    website
+    identity
+    details
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    totalStakers
+    delegatorCount
+    isJailed
+  }
+}
+
+# 9. All Validators Minimal Info (for dropdowns/selects)
+query ValidatorsMinimal {
+  validators(first: 1000, orderBy: moniker, orderDirection: asc) {
+    id
+    moniker
+    status
+  }
+}
+
+# 10. Validators Leaderboard
+query ValidatorsLeaderboard($limit: Int = 50) {
+  validators(
+    first: $limit
+    where: { status: Active }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    identity
+    stakingAmount
+    totalRewards
+    totalStakers
+    delegatorCount
+    createdAtTimestamp
+  }
+}

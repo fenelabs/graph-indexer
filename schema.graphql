@@ -1,0 +1,195 @@
+enum ValidatorStatus {
+  Created
+  Active
+  Jailed
+  Slashed
+  Inactive
+}
+
+type Validator @entity(immutable: false) {
+  id: ID!                                    # validator address
+  rewardAddress: Bytes!                      # reward recipient address
+  status: ValidatorStatus!                   # current status
+  stakingAmount: BigInt!                     # total staked on this validator
+  totalRewards: BigInt!                      # cumulative rewards earned
+  slashedAmount: BigInt!                     # total amount slashed
+  commissionRate: BigInt                     # commission rate (if tracked)
+  isJailed: Boolean!                         # jailed status
+  createdAtBlock: BigInt!                    # block when created
+  createdAtTimestamp: BigInt!                # timestamp when created
+  updatedAtBlock: BigInt!                    # last update block
+  updatedAtTimestamp: BigInt!                # last update timestamp
+
+  # Validator Metadata/Description
+  moniker: String                            # validator display name
+  website: String                            # validator website URL
+  identity: String                           # keybase/identity string
+  details: String                            # additional details/description
+
+  # Relations
+  stakes: [Stake!]! @derivedFrom(field: "validator")
+  rewards: [ValidatorReward!]! @derivedFrom(field: "validator")
+  slashEvents: [SlashEvent!]! @derivedFrom(field: "validator")
+
+  # Aggregates
+  totalStakers: Int!                         # number of unique stakers
+  delegatorCount: Int!                       # current active delegators
+}
+
+type Stake @entity(immutable: false) {
+  id: ID!                                    # staker-validator composite (staker-validator)
+  staker: Bytes!                             # staker address
+  validator: Validator!                      # validator reference
+  amount: BigInt!                            # currently staked amount
+  unstakeBlock: BigInt                       # block when unstake initiated (null if active)
+  unlockHeight: BigInt                       # block when can withdraw (from Unstake event)
+  isActive: Boolean!                         # true if currently staked
+  totalStaked: BigInt!                       # lifetime total staked
+  totalWithdrawn: BigInt!                    # lifetime total withdrawn
+  claimedRewards: BigInt!                    # total rewards claimed
+
+  # Tracking
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+type RewardDistribution @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+
+  # Arrays from event
+  validators: [Bytes!]!                      # array of validator addresses
+  rewards: [BigInt!]!                        # array of reward amounts (matching index)
+  rewardCount: BigInt!                       # count from event
+
+  # Aggregate
+  totalRewardsDistributed: BigInt!           # sum of all rewards in this batch
+}
+
+type ValidatorReward @entity(immutable: true) {
+  id: ID!                                    # validator-blockNumber-logIndex
+  validator: Validator!                      # validator reference
+  amount: BigInt!                            # reward amount
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+  distributionId: String!                    # reference to RewardDistribution
+}
+
+type DelegatorRewardClaim @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  delegator: Bytes!                          # delegator address
+  validator: Validator!                      # validator reference
+  amount: BigInt!                            # claimed amount
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type SlashEvent @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  validator: Validator!                      # validator reference
+  amount: BigInt!                            # slashed amount
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UnstakeEvent @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  staker: Bytes!
+  validator: Validator!
+  amount: BigInt!
+  unlockHeight: BigInt!                      # when can withdraw
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type WithdrawEvent @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  staker: Bytes!
+  validator: Validator!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ValidatorCreatedEvent @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  validator: Bytes!                          # validator address
+  rewardAddress: Bytes!                      # reward address
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ValidatorSetUpdate @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  validators: [Bytes!]!                      # active validator set
+  validatorCount: Int!                       # count of validators
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ProtocolState @entity(immutable: false) {
+  id: ID!                                    # "1" (singleton)
+  admin: Bytes!                              # current admin address
+  isPaused: Boolean!                         # pause status
+  totalStaking: BigInt!                      # total staked across all validators
+  totalValidators: Int!                      # total number of validators
+  activeValidators: Int!                     # number of active validators
+  jailedValidators: Int!                     # number of jailed validators
+  totalRewardsDistributed: BigInt!           # lifetime rewards distributed
+  totalSlashed: BigInt!                      # lifetime slashed amount
+
+  # Tracking
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+type AdminChangeEvent @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  previousAdmin: Bytes!
+  newAdmin: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PauseEvent @entity(immutable: true) {
+  id: ID!                                    # tx hash + log index
+  isPaused: Boolean!                         # true for Paused, false for Unpaused
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# Stats entity for dashboard/analytics
+type DailyValidatorStat @entity(immutable: true) {
+  id: ID!                                    # validator-dayTimestamp
+  validator: Validator!
+  date: Int!                                 # day start timestamp
+  stakingAmount: BigInt!                     # snapshot at end of day
+  rewardsEarned: BigInt!                     # rewards earned this day
+  stakersCount: Int!                         # number of stakers
+  slashedAmount: BigInt!                     # amount slashed this day
+}
+
+# Global daily stats
+type DailyProtocolStat @entity(immutable: true) {
+  id: ID!                                    # dayTimestamp
+  date: Int!                                 # day start timestamp
+  totalStaking: BigInt!
+  totalValidators: Int!
+  activeValidators: Int!
+  totalRewardsDistributed: BigInt!
+  totalSlashed: BigInt!
+  uniqueStakers: Int!
+}

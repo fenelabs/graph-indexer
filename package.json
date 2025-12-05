@@ -1,0 +1,21 @@
+{
+  "name": "fenelabs-indexer",
+  "license": "UNLICENSED",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ fenelabs-indexer",
+    "create-local": "graph create --node http://localhost:8020/ fenelabs-indexer",
+    "remove-local": "graph remove --node http://localhost:8020/ fenelabs-indexer",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 fenelabs-indexer",
+    "test": "graph test",
+    "redeploy-local": "npm run remove-local && npm run build && npm run create-local && npm run deploy-local",
+    "update-local": "npm run build && npm run deploy-local",
+    "fresh-deploy": "npm run remove-local && npm run codegen && npm run build && npm run create-local && npm run deploy-local"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.37.0"
+  },
+  "devDependencies": { "matchstick-as": "0.6.0" }
+}

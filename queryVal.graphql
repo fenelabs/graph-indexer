@@ -1,0 +1,271 @@
+# ============================================================================
+# VALIDATOR QUERIES
+# ============================================================================
+
+# 1. Get All ValidatorCreated Events (untuk cek berapa kali event dipanggil)
+query GetValidatorCreatedEvents {
+  validatorCreatedEvents(
+    first: 100
+    orderBy: timestamp
+    orderDirection: asc
+  ) {
+    id
+    validator
+    rewardAddress
+    blockNumber
+    timestamp
+    transactionHash
+  }
+}
+
+# 2. Get All Validators dengan detail lengkap
+query GetAllValidators {
+  validators(
+    first: 100
+    orderBy: createdAtTimestamp
+    orderDirection: asc
+  ) {
+    id
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    slashedAmount
+    commissionRate
+    isJailed
+    totalStakers
+    delegatorCount
+    createdAtBlock
+    createdAtTimestamp
+    updatedAtBlock
+    updatedAtTimestamp
+  }
+}
+
+# 3. Get Top Validators by Staking Amount
+query GetTopValidators($first: Int = 10) {
+  validators(
+    first: $first
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    slashedAmount
+    isJailed
+    totalStakers
+    delegatorCount
+    createdAtTimestamp
+  }
+}
+
+# 4. Get Active Validators Only
+query GetActiveValidators {
+  validators(
+    first: 100
+    where: { status: Active }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    totalStakers
+    delegatorCount
+  }
+}
+
+# 5. Get Protocol State
+query GetProtocolState {
+  protocolStates(first: 1) {
+    id
+    admin
+    isPaused
+    totalStaking
+    totalValidators
+    activeValidators
+    jailedValidators
+    totalRewardsDistributed
+    totalSlashed
+    lastUpdatedBlock
+    lastUpdatedTimestamp
+  }
+}
+
+# 6. Get Validator Set Updates
+query GetValidatorSetUpdates {
+  validatorSetUpdates(
+    first: 10
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    validators
+    validatorCount
+    blockNumber
+    timestamp
+    transactionHash
+  }
+}
+
+# 7. Get Stakes for Specific Validator
+query GetValidatorStakes($validatorId: ID!) {
+  stakes(
+    first: 100
+    where: { validator: $validatorId }
+    orderBy: amount
+    orderDirection: desc
+  ) {
+    id
+    staker
+    amount
+    isActive
+    totalStaked
+    totalWithdrawn
+    claimedRewards
+    createdAtTimestamp
+  }
+}
+
+# 8. Get All Stakes (Active Only)
+query GetActiveStakes {
+  stakes(
+    first: 100
+    where: { isActive: true }
+    orderBy: amount
+    orderDirection: desc
+  ) {
+    id
+    staker
+    validator {
+      id
+      status
+    }
+    amount
+    totalStaked
+    createdAtTimestamp
+  }
+}
+
+# 9. Get Reward Distribution History
+query GetRewardDistributions {
+  rewardDistributions(
+    first: 10
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    validators
+    rewards
+    rewardCount
+    totalRewardsDistributed
+    blockNumber
+    timestamp
+    transactionHash
+  }
+}
+
+# 10. Get Validator Rewards for Specific Validator
+query GetValidatorRewards($validatorId: ID!) {
+  validatorRewards(
+    first: 20
+    where: { validator: $validatorId }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    amount
+    blockNumber
+    timestamp
+    transactionHash
+    distributionId
+  }
+}
+
+# 11. Get Slash Events
+query GetSlashEvents {
+  slashEvents(
+    first: 10
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    validator {
+      id
+      status
+    }
+    amount
+    blockNumber
+    timestamp
+    transactionHash
+  }
+}
+
+# 12. Check Metadata (untuk debug indexing)
+query GetMetadata {
+  _meta {
+    block {
+      number
+      hash
+    }
+    hasIndexingErrors
+    deployment
+  }
+}
+
+# ============================================================================
+# DIAGNOSTIC QUERIES (untuk troubleshooting)
+# ============================================================================
+
+# 13. Count Total Entities
+query CountEntities {
+  validators(first: 1000) {
+    id
+  }
+  validatorCreatedEvents(first: 1000) {
+    id
+  }
+  stakes(first: 1000) {
+    id
+  }
+}
+
+# 14. Get Validator by Address
+query GetValidatorByAddress($address: ID!) {
+  validator(id: $address) {
+    id
+    rewardAddress
+    status
+    stakingAmount
+    totalRewards
+    slashedAmount
+    isJailed
+    totalStakers
+    delegatorCount
+    createdAtBlock
+    createdAtTimestamp
+    updatedAtBlock
+    updatedAtTimestamp
+    stakes {
+      id
+      staker
+      amount
+      isActive
+    }
+    rewards {
+      id
+      amount
+      timestamp
+    }
+    slashEvents {
+      id
+      amount
+      timestamp
+    }
+  }
+}

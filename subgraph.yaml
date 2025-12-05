@@ -1,0 +1,71 @@
+specVersion: 1.3.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: Validators
+    network: fenechain
+    source:
+      address: "0x0000000000000000000000000000000000001000"
+      abi: Validators
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - AddToValidatorCandidate
+        - AdminChanged
+        - DelegatorRewardsClaimed
+        - Paused
+        - RemoveFromValidatorCandidate
+        - RewardDistributed
+        - Staking
+        - Unpaused
+        - Unstake
+        - ValidatorCreated
+        - ValidatorSetUpdated
+        - ValidatorSlash
+        - ValidatorUnjailed
+        - ValidatorUpdated
+        - WithdrawRewards
+        - WithdrawStaking
+      abis:
+        - name: Validators
+          file: ./abis/Validators.json
+      eventHandlers:
+        - event: AddToValidatorCandidate(indexed address)
+          handler: handleAddToValidatorCandidate
+        - event: AdminChanged(indexed address,indexed address)
+          handler: handleAdminChanged
+        - event: DelegatorRewardsClaimed(indexed address,indexed address,uint256)
+          handler: handleDelegatorRewardsClaimed
+        - event: Paused()
+          handler: handlePaused
+        - event: RemoveFromValidatorCandidate(indexed address)
+          handler: handleRemoveFromValidatorCandidate
+        - event: RewardDistributed(address[],uint256[],uint256)
+          handler: handleRewardDistributed
+        - event: Staking(indexed address,indexed address,uint256)
+          handler: handleStaking
+        - event: Unpaused()
+          handler: handleUnpaused
+        - event: Unstake(indexed address,indexed address,uint256,uint256)
+          handler: handleUnstake
+        - event: ValidatorCreated(indexed address,indexed address)
+          handler: handleValidatorCreated
+        - event: ValidatorSetUpdated(address[])
+          handler: handleValidatorSetUpdated
+        - event: ValidatorSlash(indexed address,uint256)
+          handler: handleValidatorSlash
+        - event: ValidatorUnjailed(indexed address)
+          handler: handleValidatorUnjailed
+        - event: ValidatorUpdated(indexed address,indexed address)
+          handler: handleValidatorUpdated
+        - event: WithdrawRewards(indexed address,indexed address,uint256,uint256)
+          handler: handleWithdrawRewards
+        - event: WithdrawStaking(indexed address,indexed address,uint256)
+          handler: handleWithdrawStaking
+      file: ./src/validators.ts
