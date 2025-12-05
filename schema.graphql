@@ -23,8 +23,14 @@ type Validator @entity(immutable: false) {
   # Validator Metadata/Description
   moniker: String                            # validator display name
   website: String                            # validator website URL
-  identity: String                           # keybase/identity string
+  email: String                              # contact email address
   details: String                            # additional details/description
+
+  # Commission & Reward Pool (from getValidatorInfo)
+  lastWithdrawRewardBlock: BigInt            # last block validator withdrew rewards
+  delegatorRewardPool: BigInt                # total pool for delegator rewards
+  accRewardPerStake: BigInt                  # accumulated reward per stake unit
+  accSlashPerStake: BigInt                   # accumulated slash per stake unit
 
   # Relations
   stakes: [Stake!]! @derivedFrom(field: "validator")
@@ -169,6 +175,23 @@ type PauseEvent @entity(immutable: true) {
   blockNumber: BigInt!
   timestamp: BigInt!
   transactionHash: Bytes!
+}
+
+type SystemParameters @entity(immutable: false) {
+  id: ID!                                    # "1" (singleton)
+  blockEpoch: BigInt!                        # epoch duration in blocks
+  maxValidatorNum: Int!                      # maximum number of validators
+  minimalStakingCoin: BigInt!                # minimum stake amount
+  minimalOfStaking: BigInt!                  # minimum staking requirement
+  stakingLockPeriod: BigInt!                 # lock period for unstaking
+  withdrawRewardPeriod: BigInt!              # period between reward withdrawals
+  defaultCommissionRate: BigInt!             # default commission rate
+  maxCommissionRate: BigInt!                 # maximum allowed commission rate
+  validatorSlashAmount: BigInt!              # amount slashed on penalty
+
+  # Tracking
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
 }
 
 # Stats entity for dashboard/analytics

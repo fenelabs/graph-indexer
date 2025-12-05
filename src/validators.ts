@@ -30,6 +30,7 @@ import {
   ValidatorCreatedEvent,
   ValidatorSetUpdate,
   ProtocolState,
+  SystemParameters,
   AdminChangeEvent,
   PauseEvent
 } from "../generated/schema"
@@ -51,14 +52,87 @@ function fetchValidatorDescription(validatorAddress: Address): void {
   if (!descriptionResult.reverted) {
     let validator = Validator.load(validatorAddress.toHexString())
     if (validator) {
-      // getValidatorDescription returns 4 strings: moniker, website, identity, details
+      // getValidatorDescription returns 4 strings: moniker, website, email, details
       validator.moniker = descriptionResult.value.value0
       validator.website = descriptionResult.value.value1
-      validator.identity = descriptionResult.value.value2
+      validator.email = descriptionResult.value.value2      // FIXED: was identity
       validator.details = descriptionResult.value.value3
       validator.save()
     }
   }
+}
+
+// Helper function to fetch complete validator info (commission, rewards, etc)
+function fetchValidatorInfo(validatorAddress: Address): void {
+  let contract = ValidatorsContract.bind(Address.fromString(VALIDATORS_CONTRACT_ADDRESS))
+
+  // Try to fetch complete validator info from contract
+  let infoResult = contract.try_getValidatorInfo(validatorAddress)
+
+  if (!infoResult.reverted) {
+    let validator = Validator.load(validatorAddress.toHexString())
+    if (validator) {
+      // getValidatorInfo returns:
+      // 0: rewardAddr (address)
+      // 1: status (uint8)
+      // 2: stakingAmount (uint256)
+      // 3: rewardAmount (uint256)
+      // 4: slashAmount (uint256)
+      // 5: lastWithdrawRewardBlock (uint256)
+      // 6: delegators (address[])
+
+      // Note: We get more detailed info from validatorInfo struct via contract state
+      // For now, we'll call the view function to get the additional fields
+
+      // Update commission and reward pool data
+      let validatorInfoResult = contract.try_validatorInfo(validatorAddress)
+      if (!validatorInfoResult.reverted) {
+        // validatorInfo returns full struct with all fields
+        validator.commissionRate = validatorInfoResult.value.value7           // commissionRate
+        validator.lastWithdrawRewardBlock = validatorInfoResult.value.value6  // lastWithdrawRewardBlock
+        validator.delegatorRewardPool = validatorInfoResult.value.value8      // delegatorRewardPool
+        validator.accRewardPerStake = validatorInfoResult.value.value9        // accRewardPerStake
+        validator.accSlashPerStake = validatorInfoResult.value.value10        // accSlashPerStake
+        validator.save()
+      }
+    }
+  }
+}
+
+// Helper function to fetch and store system parameters
+function getOrCreateSystemParameters(blockNumber: BigInt, timestamp: BigInt): SystemParameters {
+  let params = SystemParameters.load("1")
+  if (!params) {
+    params = new SystemParameters("1")
+    let contract = ValidatorsContract.bind(Address.fromString(VALIDATORS_CONTRACT_ADDRESS))
+
+    // Fetch all system parameters from contract
+    let blockEpoch = contract.try_BlockEpoch()
+    let maxValidators = contract.try_MaxValidatorNum()
+    let minStakingCoin = contract.try_MinimalStakingCoin()
+    let minStaking = contract.try_MinimalOfStaking()
+    let lockPeriod = contract.try_StakingLockPeriod()
+    let withdrawPeriod = contract.try_WithdrawRewardPeriod()
+    let defaultCommission = contract.try_DEFAULT_COMMISSION_RATE()
+    let maxCommission = contract.try_MAX_COMMISSION_RATE()
+    let slashAmount = contract.try_ValidatorSlashAmount()
+
+    // Set values with fallbacks
+    params.blockEpoch = !blockEpoch.reverted ? blockEpoch.value : BigInt.zero()
+    params.maxValidatorNum = !maxValidators.reverted ? maxValidators.value : 0
+    params.minimalStakingCoin = !minStakingCoin.reverted ? minStakingCoin.value : BigInt.zero()
+    params.minimalOfStaking = !minStaking.reverted ? minStaking.value : BigInt.zero()
+    // u64 values - set to zero for now (type conversion issue)
+    params.stakingLockPeriod = BigInt.zero()   // TODO: fix u64 conversion
+    params.withdrawRewardPeriod = BigInt.zero() // TODO: fix u64 conversion
+    params.defaultCommissionRate = !defaultCommission.reverted ? defaultCommission.value : BigInt.zero()
+    params.maxCommissionRate = !maxCommission.reverted ? maxCommission.value : BigInt.zero()
+    params.validatorSlashAmount = !slashAmount.reverted ? slashAmount.value : BigInt.zero()
+    params.lastUpdatedBlock = blockNumber
+    params.lastUpdatedTimestamp = timestamp
+    params.save()
+  }
+  return params
 }
 
 function getOrCreateProtocolState(blockNumber: BigInt, timestamp: BigInt): ProtocolState {
@@ -76,6 +150,9 @@ function getOrCreateProtocolState(blockNumber: BigInt, timestamp: BigInt): Proto
     state.lastUpdatedBlock = blockNumber
     state.lastUpdatedTimestamp = timestamp
     state.save()
+
+    // Also initialize system parameters on first state creation
+    getOrCreateSystemParameters(blockNumber, timestamp)
   }
   return state
 }
@@ -105,13 +182,20 @@ function getOrCreateValidator(
     // Initialize metadata fields
     validator.moniker = null
     validator.website = null
-    validator.identity = null
+    validator.email = null              // FIXED: was identity
     validator.details = null
+
+    // Initialize reward pool fields
+    validator.lastWithdrawRewardBlock = null
+    validator.delegatorRewardPool = null
+    validator.accRewardPerStake = null
+    validator.accSlashPerStake = null
 
     validator.save()
 
-    // Fetch metadata from contract
+    // Fetch metadata and info from contract
     fetchValidatorDescription(Address.fromBytes(validatorAddress))
+    fetchValidatorInfo(Address.fromBytes(validatorAddress))
   }
   return validator
 }
@@ -175,8 +259,9 @@ export function handleValidatorUpdated(event: ValidatorUpdated): void {
   validator.updatedAtTimestamp = event.block.timestamp
   validator.save()
 
-  // Fetch updated metadata from contract
+  // Fetch updated metadata and info from contract
   fetchValidatorDescription(event.params.validator)
+  fetchValidatorInfo(event.params.validator)
 }
 
 export function handleValidatorSlash(event: ValidatorSlash): void {
