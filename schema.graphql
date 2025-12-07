@@ -32,10 +32,17 @@ type Validator @entity(immutable: false) {
   accRewardPerStake: BigInt                  # accumulated reward per stake unit
   accSlashPerStake: BigInt                   # accumulated slash per stake unit
 
+  # Block Performance Metrics
+  signedBlocks: BigInt!                      # total blocks signed by validator
+  missedBlocks: BigInt!                      # total blocks missed by validator
+  lastSignedBlock: BigInt                    # last block number signed
+  uptime: BigDecimal!                        # uptime percentage (signedBlocks / totalExpectedBlocks)
+
   # Relations
   stakes: [Stake!]! @derivedFrom(field: "validator")
   rewards: [ValidatorReward!]! @derivedFrom(field: "validator")
   slashEvents: [SlashEvent!]! @derivedFrom(field: "validator")
+  blockPerformance: [ValidatorBlockPerformance!]! @derivedFrom(field: "validator")
 
   # Aggregates
   totalStakers: Int!                         # number of unique stakers
@@ -195,6 +202,15 @@ type SystemParameters @entity(immutable: false) {
 }
 
 # Stats entity for dashboard/analytics
+type ValidatorBlockPerformance @entity(immutable: true) {
+  id: ID!                                    # validator-blockNumber
+  validator: Validator!                      # validator reference
+  blockNumber: BigInt!                       # block number
+  timestamp: BigInt!                         # block timestamp
+  signed: Boolean!                           # true if signed, false if missed
+  proposer: Bytes                            # block proposer address (if this validator proposed)
+}
+
 type DailyValidatorStat @entity(immutable: true) {
   id: ID!                                    # validator-dayTimestamp
   validator: Validator!
@@ -203,6 +219,9 @@ type DailyValidatorStat @entity(immutable: true) {
   rewardsEarned: BigInt!                     # rewards earned this day
   stakersCount: Int!                         # number of stakers
   slashedAmount: BigInt!                     # amount slashed this day
+  signedBlocks: BigInt!                      # blocks signed this day
+  missedBlocks: BigInt!                      # blocks missed this day
+  uptime: BigDecimal!                        # uptime percentage for this day
 }
 
 # Global daily stats
@@ -215,4 +234,7 @@ type DailyProtocolStat @entity(immutable: true) {
   totalRewardsDistributed: BigInt!
   totalSlashed: BigInt!
   uniqueStakers: Int!
+  totalBlocksSigned: BigInt!                 # total blocks signed by all validators
+  totalBlocksMissed: BigInt!                 # total blocks missed by all validators
+  averageUptime: BigDecimal!                 # average uptime across all validators
 }

@@ -1,0 +1,175 @@
+# Query Signed Block Dengan Performa Validator
+
+query ValidatorPerformance {
+  validators(
+    first: 20
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    status
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    lastSignedBlock
+    totalStakers
+    delegatorCount
+    isJailed
+    createdAtBlock
+  }
+}
+
+## Validator dengan Detail Lengkap
+query ValidatorFullDetails {
+  validators(
+    first: 20
+    orderBy: signedBlocks
+    orderDirection: desc
+  ) {
+    # Identitas
+    id
+    moniker
+    website
+    email
+    details
+    
+    # Status
+    status
+    isJailed
+    
+    # Staking Info
+    stakingAmount
+    totalStakers
+    delegatorCount
+    
+    # Block Performance
+    signedBlocks
+    missedBlocks
+    lastSignedBlock
+    uptime
+    
+    # Rewards & Commission
+    totalRewards
+    commissionRate
+    delegatorRewardPool
+    
+    # Slashing
+    slashedAmount
+    
+    # Timestamps
+    createdAtTimestamp
+    updatedAtTimestamp
+  }
+}
+
+## Spesifik Validator by Address
+query ValidatorByAddress {
+  validator(id: "0xYourValidatorAddressHere") {
+    id
+    moniker
+    status
+    signedBlocks
+    missedBlocks
+    uptime
+    stakingAmount
+    totalRewards
+    isJailed
+  }
+}
+
+## Validator dengan Uptime Rendah
+query LowUptimeValidators {
+  validators(
+    first: 20
+    where: { 
+      status: Active
+      uptime_lt: "95"  # kurang dari 95%
+    }
+    orderBy: uptime
+    orderDirection: asc
+  ) {
+    id
+    moniker
+    signedBlocks
+    missedBlocks
+    uptime
+    lastSignedBlock
+    isJailed
+  }
+}
+
+## Validator Block Performance History
+query ValidatorBlockHistory {
+  validatorBlockPerformances(
+    first: 100
+    where: { validator: "0xYourValidatorAddress" }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    blockNumber
+    timestamp
+    signed
+    proposer
+    validator {
+      moniker
+      id
+    }
+  }
+}
+
+## Dashboard Overview - All Stats
+query DashboardOverview {
+  # Protocol State
+  protocolState(id: "1") {
+    totalValidators
+    activeValidators
+    jailedValidators
+    totalStaking
+    totalRewardsDistributed
+    totalSlashed
+  }
+  
+  # Top Validators
+  validators(
+    first: 10
+    where: { status: Active }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalStakers
+    status
+  }
+}
+
+## Validator dengan Filter Multiple Kondisi
+query FilteredValidators {
+  validators(
+    first: 50
+    where: {
+      status: Active
+      isJailed: false
+      signedBlocks_gt: "0"  # sudah sign minimal 1 block
+      uptime_gte: "90"      # uptime >= 90%
+    }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalStakers
+    commissionRate
+  }
+}

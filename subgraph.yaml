@@ -32,6 +32,9 @@ dataSources:
         - ValidatorUpdated
         - WithdrawRewards
         - WithdrawStaking
+        - ValidatorBlockPerformance
+      blockHandlers:
+        - handler: handleBlock
       abis:
         - name: Validators
           file: ./abis/Validators.json

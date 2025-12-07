@@ -1,4 +1,4 @@
-import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts"
+import { BigInt, Bytes, Address, BigDecimal, ethereum } from "@graphprotocol/graph-ts"
 import {
   AddToValidatorCandidate,
   AdminChanged,
@@ -32,7 +32,8 @@ import {
   ProtocolState,
   SystemParameters,
   AdminChangeEvent,
-  PauseEvent
+  PauseEvent,
+  ValidatorBlockPerformance
 } from "../generated/schema"
 
 // ============================================================================
@@ -53,10 +54,16 @@ function fetchValidatorDescription(validatorAddress: Address): void {
     let validator = Validator.load(validatorAddress.toHexString())
     if (validator) {
       // getValidatorDescription returns 4 strings: moniker, website, email, details
-      validator.moniker = descriptionResult.value.value0
-      validator.website = descriptionResult.value.value1
-      validator.email = descriptionResult.value.value2      // FIXED: was identity
-      validator.details = descriptionResult.value.value3
+      let moniker = descriptionResult.value.value0
+      let website = descriptionResult.value.value1
+      let email = descriptionResult.value.value2
+      let details = descriptionResult.value.value3
+      
+      // Set values (empty strings will be stored as empty, not null)
+      validator.moniker = moniker
+      validator.website = website
+      validator.email = email
+      validator.details = details
       validator.save()
     }
   }
@@ -66,35 +73,46 @@ function fetchValidatorDescription(validatorAddress: Address): void {
 function fetchValidatorInfo(validatorAddress: Address): void {
   let contract = ValidatorsContract.bind(Address.fromString(VALIDATORS_CONTRACT_ADDRESS))
 
-  // Try to fetch complete validator info from contract
-  let infoResult = contract.try_getValidatorInfo(validatorAddress)
-
-  if (!infoResult.reverted) {
+  // Use validatorInfo to get complete struct including description
+  let validatorInfoResult = contract.try_validatorInfo(validatorAddress)
+  
+  if (!validatorInfoResult.reverted) {
     let validator = Validator.load(validatorAddress.toHexString())
     if (validator) {
-      // getValidatorInfo returns:
-      // 0: rewardAddr (address)
-      // 1: status (uint8)
-      // 2: stakingAmount (uint256)
-      // 3: rewardAmount (uint256)
-      // 4: slashAmount (uint256)
-      // 5: lastWithdrawRewardBlock (uint256)
-      // 6: delegators (address[])
-
-      // Note: We get more detailed info from validatorInfo struct via contract state
-      // For now, we'll call the view function to get the additional fields
-
+      // validatorInfo returns full struct:
+      // value0: rewardAddr (address)
+      // value1: status (uint8)
+      // value2: stakingAmount (uint256)
+      // value3: description (tuple with moniker, website, email, details)
+      // value4: rewardAmount (uint256)
+      // value5: slashAmount (uint256)
+      // value6: lastWithdrawRewardBlock (uint256)
+      // value7: commissionRate (uint256)
+      // value8: delegatorRewardPool (uint256)
+      // value9: accRewardPerStake (uint256)
+      // value10: accSlashPerStake (uint256)
+      
       // Update commission and reward pool data
-      let validatorInfoResult = contract.try_validatorInfo(validatorAddress)
-      if (!validatorInfoResult.reverted) {
-        // validatorInfo returns full struct with all fields
-        validator.commissionRate = validatorInfoResult.value.value7           // commissionRate
-        validator.lastWithdrawRewardBlock = validatorInfoResult.value.value6  // lastWithdrawRewardBlock
-        validator.delegatorRewardPool = validatorInfoResult.value.value8      // delegatorRewardPool
-        validator.accRewardPerStake = validatorInfoResult.value.value9        // accRewardPerStake
-        validator.accSlashPerStake = validatorInfoResult.value.value10        // accSlashPerStake
-        validator.save()
-      }
+      validator.commissionRate = validatorInfoResult.value.value7
+      validator.lastWithdrawRewardBlock = validatorInfoResult.value.value6
+      validator.delegatorRewardPool = validatorInfoResult.value.value8
+      validator.accRewardPerStake = validatorInfoResult.value.value9
+      validator.accSlashPerStake = validatorInfoResult.value.value10
+      
+      // Extract description from tuple (value3)
+      let description = validatorInfoResult.value.value3
+      let moniker = description.moniker
+      let website = description.website
+      let email = description.email
+      let details = description.details
+      
+      // Only set if not empty string
+      validator.moniker = moniker.length > 0 ? moniker : null
+      validator.website = website.length > 0 ? website : null
+      validator.email = email.length > 0 ? email : null
+      validator.details = details.length > 0 ? details : null
+      
+      validator.save()
     }
   }
 }
@@ -182,7 +200,7 @@ function getOrCreateValidator(
     // Initialize metadata fields
     validator.moniker = null
     validator.website = null
-    validator.email = null              // FIXED: was identity
+    validator.email = null
     validator.details = null
 
     // Initialize reward pool fields
@@ -190,6 +208,12 @@ function getOrCreateValidator(
     validator.delegatorRewardPool = null
     validator.accRewardPerStake = null
     validator.accSlashPerStake = null
+
+    // Initialize block performance metrics
+    validator.signedBlocks = BigInt.zero()
+    validator.missedBlocks = BigInt.zero()
+    validator.lastSignedBlock = null
+    validator.uptime = BigDecimal.zero()
 
     validator.save()
 
@@ -224,7 +248,10 @@ export function handleValidatorCreated(event: ValidatorCreated): void {
   validator.status = "Created"
   validator.updatedAtBlock = event.block.number
   validator.updatedAtTimestamp = event.block.timestamp
-  validator.save()
+  
+  // Fetch metadata immediately after creation
+  fetchValidatorDescription(event.params.validator)
+  fetchValidatorInfo(event.params.validator)
 
   // Create ValidatorCreated event record
   let eventId = event.transaction.hash
@@ -257,11 +284,12 @@ export function handleValidatorUpdated(event: ValidatorUpdated): void {
   validator.rewardAddress = event.params.rewardAddr
   validator.updatedAtBlock = event.block.number
   validator.updatedAtTimestamp = event.block.timestamp
-  validator.save()
-
+  
   // Fetch updated metadata and info from contract
   fetchValidatorDescription(event.params.validator)
   fetchValidatorInfo(event.params.validator)
+  
+  // Note: validator.save() is called inside fetch functions
 }
 
 export function handleValidatorSlash(event: ValidatorSlash): void {
@@ -750,4 +778,51 @@ export function handleUnpaused(event: Unpaused): void {
   pauseEvent.timestamp = event.block.timestamp
   pauseEvent.transactionHash = event.transaction.hash
   pauseEvent.save()
+}
+
+export function handleBlock(block: ethereum.Block): void {
+  // Get block miner/signer (validator yang sign block ini)
+  let blockAuthor = block.author
+  
+  if (blockAuthor) {
+    let validatorId = blockAuthor.toHexString()
+    let validator = Validator.load(validatorId)
+    
+    if (validator) {
+      // Update signed blocks count
+      validator.signedBlocks = validator.signedBlocks.plus(BigInt.fromI32(1))
+      validator.lastSignedBlock = block.number
+      validator.updatedAtBlock = block.number
+      validator.updatedAtTimestamp = block.timestamp
+      
+      // Calculate uptime percentage
+      let totalBlocks = validator.signedBlocks.plus(validator.missedBlocks)
+      if (totalBlocks.gt(BigInt.zero())) {
+        // uptime = (signedBlocks / totalBlocks) * 100
+        validator.uptime = validator.signedBlocks
+          .toBigDecimal()
+          .div(totalBlocks.toBigDecimal())
+          .times(BigDecimal.fromString("100"))
+      }
+      
+      validator.save()
+      
+      // Create ValidatorBlockPerformance record
+      let performanceId = validatorId
+        .concat("-")
+        .concat(block.number.toString())
+      let performance = new ValidatorBlockPerformance(performanceId)
+      performance.validator = validatorId
+      performance.blockNumber = block.number
+      performance.timestamp = block.timestamp
+      performance.signed = true
+      performance.proposer = blockAuthor
+      performance.save()
+    }
+  }
+  
+  // Optional: Track missed blocks for active validators
+  // This requires knowing the current validator set and checking who didn't sign
+  // For simplicity, we're only tracking signed blocks here
+  // Missed blocks can be inferred or tracked via ValidatorSetUpdated event
 }

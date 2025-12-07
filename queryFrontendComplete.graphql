@@ -1,0 +1,741 @@
+# ============================================================================
+# FRONTEND QUERIES - COMPLETE SET FOR REALTIME DASHBOARD
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. DASHBOARD OVERVIEW - Data umum untuk halaman utama
+# ----------------------------------------------------------------------------
+query DashboardOverview {
+  # Protocol Statistics
+  protocolState(id: "1") {
+    totalValidators
+    activeValidators
+    jailedValidators
+    totalStaking
+    totalRewardsDistributed
+    totalSlashed
+    lastUpdatedBlock
+    lastUpdatedTimestamp
+    isPaused
+  }
+  
+  # System Parameters
+  systemParameters(id: "1") {
+    maxValidatorNum
+    minimalStakingCoin
+    stakingLockPeriod
+    blockEpoch
+    defaultCommissionRate
+    maxCommissionRate
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 2. VALIDATOR LIST - Daftar lengkap validator dengan performa
+# ----------------------------------------------------------------------------
+query ValidatorList(
+  $first: Int = 50
+  $skip: Int = 0
+  $orderBy: Validator_orderBy = uptime
+  $orderDirection: OrderDirection = desc
+) {
+  validators(
+    first: $first
+    skip: $skip
+    orderBy: $orderBy
+    orderDirection: $orderDirection
+  ) {
+    # Identity
+    id
+    moniker
+    website
+    email
+    details
+    rewardAddress
+    
+    # Status
+    status
+    isJailed
+    
+    # Staking Info
+    stakingAmount
+    totalStakers
+    delegatorCount
+    
+    # Block Performance
+    signedBlocks
+    missedBlocks
+    lastSignedBlock
+    uptime
+    
+    # Rewards & Commission
+    totalRewards
+    commissionRate
+    delegatorRewardPool
+    accRewardPerStake
+    
+    # Slashing
+    slashedAmount
+    
+    # Timestamps
+    createdAtBlock
+    createdAtTimestamp
+    updatedAtBlock
+    updatedAtTimestamp
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 3. ACTIVE VALIDATORS - Hanya validator aktif (untuk dropdown, dll)
+# ----------------------------------------------------------------------------
+query ActiveValidators {
+  validators(
+    first: 1000
+    where: { 
+      status: Active
+      isJailed: false
+    }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    stakingAmount
+    uptime
+    signedBlocks
+    missedBlocks
+    totalStakers
+    commissionRate
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 4. TOP VALIDATORS - Top performer berdasarkan berbagai metrik
+# ----------------------------------------------------------------------------
+query TopValidators {
+  # Top by Uptime
+  topByUptime: validators(
+    first: 10
+    where: { status: Active }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+    stakingAmount
+  }
+  
+  # Top by Staking
+  topByStaking: validators(
+    first: 10
+    where: { status: Active }
+    orderBy: stakingAmount
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    stakingAmount
+    totalStakers
+    uptime
+    signedBlocks
+  }
+  
+  # Top by Rewards
+  topByRewards: validators(
+    first: 10
+    where: { status: Active }
+    orderBy: totalRewards
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    totalRewards
+    delegatorRewardPool
+    commissionRate
+    stakingAmount
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 5. VALIDATOR DETAIL - Detail lengkap satu validator
+# ----------------------------------------------------------------------------
+query ValidatorDetail($validatorId: ID!) {
+  validator(id: $validatorId) {
+    # Identity
+    id
+    moniker
+    website
+    email
+    details
+    rewardAddress
+    
+    # Status
+    status
+    isJailed
+    
+    # Staking Info
+    stakingAmount
+    totalStakers
+    delegatorCount
+    
+    # Block Performance
+    signedBlocks
+    missedBlocks
+    lastSignedBlock
+    uptime
+    
+    # Rewards & Commission
+    totalRewards
+    commissionRate
+    delegatorRewardPool
+    accRewardPerStake
+    accSlashPerStake
+    lastWithdrawRewardBlock
+    
+    # Slashing
+    slashedAmount
+    
+    # Timestamps
+    createdAtBlock
+    createdAtTimestamp
+    updatedAtBlock
+    updatedAtTimestamp
+    
+    # Relations - Recent activities (limit untuk performa)
+    stakes(first: 10, orderBy: lastUpdatedBlock, orderDirection: desc) {
+      id
+      staker
+      amount
+      isActive
+      totalStaked
+      claimedRewards
+      lastUpdatedTimestamp
+    }
+    
+    rewards(first: 20, orderBy: blockNumber, orderDirection: desc) {
+      id
+      amount
+      blockNumber
+      timestamp
+      transactionHash
+    }
+    
+    slashEvents(first: 10, orderBy: blockNumber, orderDirection: desc) {
+      id
+      amount
+      blockNumber
+      timestamp
+      transactionHash
+    }
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 6. BLOCK PERFORMANCE - Recent blocks dengan proposer info
+# ----------------------------------------------------------------------------
+query RecentBlockPerformance(
+  $first: Int = 100
+  $validatorId: String
+) {
+  validatorBlockPerformances(
+    first: $first
+    where: $validatorId ? { validator: $validatorId } : {}
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    blockNumber
+    timestamp
+    signed
+    proposer
+    validator {
+      id
+      moniker
+      status
+    }
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 7. LATEST BLOCKS BY PROPOSER - Siapa yang propose block terakhir
+# ----------------------------------------------------------------------------
+query LatestBlocksByProposer($first: Int = 50) {
+  validatorBlockPerformances(
+    first: $first
+    where: { signed: true }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    blockNumber
+    timestamp
+    proposer
+    validator {
+      id
+      moniker
+      uptime
+    }
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 8. VALIDATOR PERFORMANCE SUMMARY - Per validator stats
+# ----------------------------------------------------------------------------
+query ValidatorPerformanceSummary($validatorId: ID!) {
+  validator(id: $validatorId) {
+    id
+    moniker
+    
+    # Core Performance Metrics
+    signedBlocks
+    missedBlocks
+    uptime
+    lastSignedBlock
+    
+    # Recent Block Performance (last 100 blocks)
+    blockPerformance(
+      first: 100
+      orderBy: blockNumber
+      orderDirection: desc
+    ) {
+      blockNumber
+      timestamp
+      signed
+    }
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 9. STAKERS BY VALIDATOR - Daftar staker untuk validator tertentu
+# ----------------------------------------------------------------------------
+query StakersByValidator(
+  $validatorId: ID!
+  $first: Int = 50
+  $skip: Int = 0
+) {
+  stakes(
+    first: $first
+    skip: $skip
+    where: { 
+      validator: $validatorId
+      isActive: true
+    }
+    orderBy: amount
+    orderDirection: desc
+  ) {
+    id
+    staker
+    amount
+    totalStaked
+    totalWithdrawn
+    claimedRewards
+    isActive
+    createdAtTimestamp
+    lastUpdatedTimestamp
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 10. RECENT REWARDS - Reward distribution terbaru
+# ----------------------------------------------------------------------------
+query RecentRewards($first: Int = 50) {
+  rewardDistributions(
+    first: $first
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    blockNumber
+    timestamp
+    transactionHash
+    validators
+    rewards
+    rewardCount
+    totalRewardsDistributed
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 11. VALIDATOR REWARDS DETAIL - Reward history per validator
+# ----------------------------------------------------------------------------
+query ValidatorRewardsHistory(
+  $validatorId: ID!
+  $first: Int = 100
+) {
+  validatorRewards(
+    first: $first
+    where: { validator: $validatorId }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    amount
+    blockNumber
+    timestamp
+    transactionHash
+    distributionId
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 12. RECENT EVENTS - Activity feed untuk dashboard
+# ----------------------------------------------------------------------------
+query RecentEvents($first: Int = 50) {
+  # Recent Staking
+  stakingEvents: stakes(
+    first: $first
+    orderBy: createdAtBlock
+    orderDirection: desc
+  ) {
+    id
+    staker
+    validator {
+      id
+      moniker
+    }
+    amount
+    createdAtTimestamp
+  }
+  
+  # Recent Unstakes
+  unstakeEvents(
+    first: $first
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    staker
+    validator {
+      id
+      moniker
+    }
+    amount
+    unlockHeight
+    timestamp
+  }
+  
+  # Recent Slashes
+  slashEvents(
+    first: $first
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    validator {
+      id
+      moniker
+    }
+    amount
+    timestamp
+    transactionHash
+  }
+  
+  # Recent Delegator Claims
+  delegatorRewardClaims(
+    first: $first
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    delegator
+    validator {
+      id
+      moniker
+    }
+    amount
+    timestamp
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 13. VALIDATOR SET UPDATES - Perubahan validator set
+# ----------------------------------------------------------------------------
+query ValidatorSetHistory($first: Int = 20) {
+  validatorSetUpdates(
+    first: $first
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    validators
+    validatorCount
+    blockNumber
+    timestamp
+    transactionHash
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 14. SEARCH VALIDATORS - Cari validator by moniker atau address
+# ----------------------------------------------------------------------------
+query SearchValidators($searchText: String!) {
+  # Search by moniker (case-insensitive contains)
+  validatorsByMoniker: validators(
+    first: 20
+    where: { moniker_contains_nocase: $searchText }
+  ) {
+    id
+    moniker
+    status
+    stakingAmount
+    uptime
+    signedBlocks
+    missedBlocks
+  }
+  
+  # Search by exact ID/address
+  validatorById: validator(id: $searchText) {
+    id
+    moniker
+    status
+    stakingAmount
+    uptime
+    signedBlocks
+    missedBlocks
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 15. VALIDATOR UPTIME ANALYSIS - Analisis performa uptime
+# ----------------------------------------------------------------------------
+query ValidatorUptimeAnalysis {
+  # Excellent performers (>99%)
+  excellent: validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_gte: "99"
+    }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+  }
+  
+  # Good performers (95-99%)
+  good: validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_gte: "95"
+      uptime_lt: "99"
+    }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+  }
+  
+  # Needs improvement (<95%)
+  needsImprovement: validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_lt: "95"
+    }
+    orderBy: uptime
+    orderDirection: asc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+    isJailed
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 16. REAL-TIME STATS - Untuk live updates
+# ----------------------------------------------------------------------------
+query RealTimeStats {
+  protocolState(id: "1") {
+    totalValidators
+    activeValidators
+    jailedValidators
+    totalStaking
+    lastUpdatedBlock
+    lastUpdatedTimestamp
+  }
+  
+  # Latest 10 blocks
+  recentBlocks: validatorBlockPerformances(
+    first: 10
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    blockNumber
+    timestamp
+    proposer
+    validator {
+      moniker
+    }
+  }
+  
+  # Latest rewards
+  recentRewards: rewardDistributions(
+    first: 5
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    blockNumber
+    totalRewardsDistributed
+    rewardCount
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 17. VALIDATOR COMPARISON - Compare multiple validators
+# ----------------------------------------------------------------------------
+query CompareValidators($validator1: ID!, $validator2: ID!, $validator3: ID) {
+  validator1: validator(id: $validator1) {
+    id
+    moniker
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalRewards
+    commissionRate
+    totalStakers
+  }
+  
+  validator2: validator(id: $validator2) {
+    id
+    moniker
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalRewards
+    commissionRate
+    totalStakers
+  }
+  
+  validator3: validator(id: $validator3) {
+    id
+    moniker
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalRewards
+    commissionRate
+    totalStakers
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 18. USER STAKES - Untuk user yang login melihat staking mereka
+# ----------------------------------------------------------------------------
+query UserStakes($userAddress: Bytes!) {
+  stakes(
+    where: { staker: $userAddress }
+    orderBy: amount
+    orderDirection: desc
+  ) {
+    id
+    validator {
+      id
+      moniker
+      status
+      uptime
+      commissionRate
+    }
+    amount
+    isActive
+    totalStaked
+    totalWithdrawn
+    claimedRewards
+    unstakeBlock
+    unlockHeight
+    createdAtTimestamp
+    lastUpdatedTimestamp
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 19. JAILED VALIDATORS - Monitor validator yang di-jail
+# ----------------------------------------------------------------------------
+query JailedValidators {
+  validators(
+    where: { isJailed: true }
+    orderBy: updatedAtBlock
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    status
+    isJailed
+    slashedAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    updatedAtTimestamp
+    
+    # Slash history
+    slashEvents(orderBy: blockNumber, orderDirection: desc) {
+      amount
+      blockNumber
+      timestamp
+    }
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# 20. PAGINATION EXAMPLE - Untuk infinite scroll atau pagination
+# ----------------------------------------------------------------------------
+query ValidatorsPaginated(
+  $first: Int = 20
+  $skip: Int = 0
+  $where: Validator_filter
+  $orderBy: Validator_orderBy = uptime
+  $orderDirection: OrderDirection = desc
+) {
+  validators(
+    first: $first
+    skip: $skip
+    where: $where
+    orderBy: $orderBy
+    orderDirection: $orderDirection
+  ) {
+    id
+    moniker
+    status
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalStakers
+    commissionRate
+  }
+}

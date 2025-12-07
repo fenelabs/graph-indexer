@@ -16,6 +16,14 @@ services:
     environment:
       GRAPH_NODE_ID: fenelabs-indexer
       GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: '1'
+      ETHEREUM_REORG_THRESHOLD: 250
+      ETHEREUM_BLOCK_BATCH_SIZE: 100
+      GRAPH_ETHEREUM_MAX_BLOCK_RANGE_SIZE: 1000
+      GRAPH_ETHEREUM_MAX_EVENT_ONLY_RANGE: 500
+      GRAPH_ENTITY_CACHE_SIZE: 10000
+      STORE_CONNECTION_POOL_SIZE: 10
+      GRAPH_STORE_BATCH_WORKERS: 5
+      GRAPH_ENABLE_SQL_QUERIES: 'true'
       GRAPH_LOG_POI_EVENTS: 'true'
       postgres_host: postgres
       postgres_user: graph-node

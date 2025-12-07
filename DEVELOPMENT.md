@@ -1,10 +1,8 @@
 # Fene Labs Validator Indexer - Deployment Guide
 
-## 📋 Overview
+## Overview
 
 This subgraph indexes the Fene Labs Validators contract at `0x0000000000000000000000000000000000001000`.
-
-## 🚀 Quick Start - Local Development
 
 ### Prerequisites
 
@@ -67,7 +65,7 @@ Open your browser:
 - **GraphQL Playground**: http://localhost:8000/subgraphs/name/fenelabs-indexer/graphql
 - **GraphQL Endpoint**: http://localhost:8000/subgraphs/name/fenelabs-indexer
 
-## 📊 Example Queries
+## Example Queries
 
 ### Get Protocol State
 
@@ -194,7 +192,7 @@ Open your browser:
 }
 ```
 
-## 🌐 Deploy to The Graph Studio (Production)
+## Deploy to The Graph Studio (Production)
 
 ### Step 1: Create Subgraph on The Graph Studio
 
@@ -216,7 +214,7 @@ graph auth --studio <YOUR_DEPLOY_KEY>
 npm run deploy
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Issue: Docker can't connect to RPC
 
@@ -265,7 +263,7 @@ for (let i = 0; i < count; i++) {
 }
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 fene-indexer/
@@ -279,7 +277,7 @@ fene-indexer/
 └── package.json                 # Scripts
 ```
 
-## 🎯 Entity Overview
+## Entity Overview
 
 ### Core Entities (Mutable)
 - **Validator** - Validator state and metadata
@@ -301,7 +299,7 @@ fene-indexer/
 - **DailyValidatorStat** - Per-validator daily statistics
 - **DailyProtocolStat** - Protocol-wide daily statistics
 
-## 🔄 Development Workflow
+## Development Workflow
 
 ### Making Changes
 
@@ -330,30 +328,9 @@ rm -rf data/postgres data/ipfs
 docker-compose up -d
 ```
 
-## 📝 Notes
+## Notes
 
 - **Contract Address**: `0x0000000000000000000000000000000000001000` (system contract)
 - **Start Block**: Currently set to `0` - adjust in `subgraph.yaml` if needed
 - **Network**: Configured as `mainnet` - ensure RPC endpoint matches
 - **Deterministic Processing**: All array loops use explicit counts to ensure deterministic indexing
-
-## 🆘 Support
-
-For issues or questions:
-1. Check graph-node logs: `docker-compose logs -f graph-node`
-2. Review The Graph documentation: https://thegraph.com/docs/
-3. Check contract events on block explorer
-
-## ✅ Checklist Before Production Deploy
-
-- [ ] RPC endpoint is stable and production-ready
-- [ ] Start block is set correctly in `subgraph.yaml`
-- [ ] Contract address is verified
-- [ ] Tested locally with docker-compose
-- [ ] Queries return expected data
-- [ ] Deploy key is secured
-- [ ] Monitoring is set up
-
----
-
-**Built with The Graph Protocol**

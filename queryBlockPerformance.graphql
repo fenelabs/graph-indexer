@@ -1,0 +1,447 @@
+# ============================================================================
+# VALIDATOR BLOCK PERFORMANCE QUERIES
+# ============================================================================
+
+# 1. Get Validators with Block Performance Stats
+query GetValidatorsBlockPerformance {
+  validators(
+    first: 100
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    status
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    lastSignedBlock
+    uptime
+    totalStakers
+  }
+}
+
+# 2. Get Top Validators by Uptime
+query GetTopValidatorsByUptime($first: Int = 20) {
+  validators(
+    first: $first
+    where: { status: Active }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    status
+    signedBlocks
+    missedBlocks
+    uptime
+    stakingAmount
+    totalRewards
+  }
+}
+
+# 3. Get Validator Block Performance Details
+query GetValidatorBlockPerformance($validatorId: ID!) {
+  validator(id: $validatorId) {
+    id
+    moniker
+    status
+    signedBlocks
+    missedBlocks
+    lastSignedBlock
+    uptime
+    stakingAmount
+    isJailed
+    # Recent block performance
+    blockPerformance(
+      first: 100
+      orderBy: blockNumber
+      orderDirection: desc
+    ) {
+      id
+      blockNumber
+      timestamp
+      signed
+      proposer
+    }
+  }
+}
+
+# 4. Get Validators with Low Uptime (Performance Issues)
+query GetValidatorsLowUptime($uptimeThreshold: BigDecimal = "0.95") {
+  validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_lt: $uptimeThreshold
+    }
+    orderBy: uptime
+    orderDirection: asc
+  ) {
+    id
+    moniker
+    website
+    email
+    status
+    signedBlocks
+    missedBlocks
+    uptime
+    stakingAmount
+    isJailed
+  }
+}
+
+# 5. Get Validators with Most Missed Blocks
+query GetValidatorsMostMissedBlocks($first: Int = 20) {
+  validators(
+    first: $first
+    where: { status: Active }
+    orderBy: missedBlocks
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    status
+    signedBlocks
+    missedBlocks
+    uptime
+    stakingAmount
+    isJailed
+  }
+}
+
+# 6. Get Recent Block Performance Across All Validators
+query GetRecentBlockPerformance($first: Int = 100) {
+  validatorBlockPerformances(
+    first: $first
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    validator {
+      id
+      moniker
+    }
+    blockNumber
+    timestamp
+    signed
+    proposer
+  }
+}
+
+# 7. Get Missed Blocks by Validator
+query GetMissedBlocksByValidator($validatorId: ID!, $first: Int = 50) {
+  validatorBlockPerformances(
+    first: $first
+    where: { 
+      validator: $validatorId
+      signed: false
+    }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    blockNumber
+    timestamp
+    signed
+  }
+}
+
+# 8. Get Signed Blocks by Validator
+query GetSignedBlocksByValidator($validatorId: ID!, $first: Int = 100) {
+  validatorBlockPerformances(
+    first: $first
+    where: { 
+      validator: $validatorId
+      signed: true
+    }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    blockNumber
+    timestamp
+    signed
+    proposer
+  }
+}
+
+# 9. Validator Performance Leaderboard
+query ValidatorPerformanceLeaderboard($limit: Int = 50) {
+  validators(
+    first: $limit
+    where: { status: Active }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    status
+    stakingAmount
+    signedBlocks
+    missedBlocks
+    uptime
+    totalStakers
+    totalRewards
+    lastSignedBlock
+  }
+}
+
+# 10. Daily Validator Performance Stats
+query GetDailyValidatorStats($validatorId: ID!, $days: Int = 30) {
+  dailyValidatorStats(
+    first: $days
+    where: { validator: $validatorId }
+    orderBy: date
+    orderDirection: desc
+  ) {
+    id
+    date
+    stakingAmount
+    rewardsEarned
+    stakersCount
+    slashedAmount
+    signedBlocks
+    missedBlocks
+    uptime
+  }
+}
+
+# 11. Daily Protocol Performance Stats
+query GetDailyProtocolStats($days: Int = 30) {
+  dailyProtocolStats(
+    first: $days
+    orderBy: date
+    orderDirection: desc
+  ) {
+    id
+    date
+    totalStaking
+    totalValidators
+    activeValidators
+    totalRewardsDistributed
+    totalSlashed
+    uniqueStakers
+    totalBlocksSigned
+    totalBlocksMissed
+    averageUptime
+  }
+}
+
+# 12. Validator Performance Comparison
+query CompareValidatorPerformance($validatorIds: [ID!]!) {
+  validators(where: { id_in: $validatorIds }) {
+    id
+    moniker
+    status
+    signedBlocks
+    missedBlocks
+    uptime
+    stakingAmount
+    totalRewards
+    totalStakers
+    isJailed
+    lastSignedBlock
+  }
+}
+
+# 13. Get Validators Performance Summary
+query GetValidatorsPerformanceSummary {
+  validators(
+    first: 1000
+    where: { status: Active }
+  ) {
+    id
+    moniker
+    signedBlocks
+    missedBlocks
+    uptime
+  }
+}
+
+# 14. Get Block Performance in Time Range
+query GetBlockPerformanceInRange(
+  $validatorId: ID!
+  $startBlock: BigInt!
+  $endBlock: BigInt!
+) {
+  validatorBlockPerformances(
+    first: 1000
+    where: {
+      validator: $validatorId
+      blockNumber_gte: $startBlock
+      blockNumber_lte: $endBlock
+    }
+    orderBy: blockNumber
+    orderDirection: asc
+  ) {
+    id
+    blockNumber
+    timestamp
+    signed
+  }
+}
+
+# 15. Get Validators with Perfect Uptime
+query GetValidatorsPerfectUptime {
+  validators(
+    first: 100
+    where: { 
+      status: Active
+      missedBlocks: "0"
+    }
+    orderBy: signedBlocks
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    website
+    status
+    signedBlocks
+    missedBlocks
+    uptime
+    stakingAmount
+    totalStakers
+  }
+}
+
+# 16. Validator Health Check
+query ValidatorHealthCheck($validatorId: ID!) {
+  validator(id: $validatorId) {
+    id
+    moniker
+    status
+    isJailed
+    signedBlocks
+    missedBlocks
+    uptime
+    lastSignedBlock
+    stakingAmount
+    slashedAmount
+    # Recent performance (last 100 blocks)
+    blockPerformance(
+      first: 100
+      orderBy: blockNumber
+      orderDirection: desc
+    ) {
+      blockNumber
+      signed
+      timestamp
+    }
+  }
+}
+
+# 17. Get Validators by Performance Tier
+query GetValidatorsByPerformanceTier(
+  $excellentUptime: BigDecimal = "0.99"
+  $goodUptime: BigDecimal = "0.95"
+) {
+  excellent: validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_gte: $excellentUptime
+    }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+  }
+  
+  good: validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_gte: $goodUptime
+      uptime_lt: $excellentUptime
+    }
+    orderBy: uptime
+    orderDirection: desc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+  }
+  
+  needsImprovement: validators(
+    first: 100
+    where: { 
+      status: Active
+      uptime_lt: $goodUptime
+    }
+    orderBy: uptime
+    orderDirection: asc
+  ) {
+    id
+    moniker
+    uptime
+    signedBlocks
+    missedBlocks
+    isJailed
+  }
+}
+
+# 18. Aggregate Performance Stats
+query GetAggregatePerformanceStats {
+  protocolState(id: "1") {
+    totalValidators
+    activeValidators
+    jailedValidators
+  }
+  
+  validators(first: 1000, where: { status: Active }) {
+    signedBlocks
+    missedBlocks
+    uptime
+  }
+}
+
+# 19. Recent Block Proposers
+query GetRecentBlockProposers($first: Int = 50) {
+  validatorBlockPerformances(
+    first: $first
+    where: { proposer_not: null }
+    orderBy: blockNumber
+    orderDirection: desc
+  ) {
+    id
+    blockNumber
+    timestamp
+    proposer
+    validator {
+      id
+      moniker
+    }
+  }
+}
+
+# 20. Validator Performance Timeline
+query GetValidatorPerformanceTimeline(
+  $validatorId: ID!
+  $startTimestamp: BigInt!
+  $endTimestamp: BigInt!
+) {
+  validatorBlockPerformances(
+    first: 1000
+    where: {
+      validator: $validatorId
+      timestamp_gte: $startTimestamp
+      timestamp_lte: $endTimestamp
+    }
+    orderBy: timestamp
+    orderDirection: asc
+  ) {
+    id
+    blockNumber
+    timestamp
+    signed
+  }
+}
